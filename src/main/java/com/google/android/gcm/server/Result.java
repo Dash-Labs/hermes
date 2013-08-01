@@ -43,6 +43,7 @@ import java.io.Serializable;
  *         - otherwise, update the server datastore with the new id.
  * </pre>
  */
+@SuppressWarnings("serial")
 public final class Result implements Serializable {
 
     private final String messageId;

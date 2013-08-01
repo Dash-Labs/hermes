@@ -56,6 +56,7 @@ import java.util.Map;
  *    .build();
  * </pre></code>
  */
+@SuppressWarnings("serial")
 public final class Message implements Serializable {
 
     private final String collapseKey;

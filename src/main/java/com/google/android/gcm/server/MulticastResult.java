@@ -23,6 +23,7 @@ import java.util.List;
 /**
  * Result of a GCM multicast message request .
  */
+@SuppressWarnings("serial")
 public final class MulticastResult implements Serializable {
 
     private final int success;

@@ -506,6 +506,7 @@ public class Sender {
         return (Number) value;
     }
 
+    @SuppressWarnings("serial")
     class CustomParserException extends RuntimeException {
         CustomParserException(String message) {
             super(message);

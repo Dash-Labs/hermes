@@ -22,6 +22,7 @@ import java.io.IOException;
  * <p>
  * This is equivalent to GCM posts that return an HTTP error different of 200.
  */
+@SuppressWarnings("serial")
 public final class InvalidRequestException extends IOException {
 
     private final int status;
