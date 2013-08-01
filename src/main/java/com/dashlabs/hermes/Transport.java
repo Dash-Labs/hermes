@@ -15,7 +15,8 @@ public interface Transport<T> {
     /**
      * @param message to send on the underlying transport
      * @param retries number of times to attempt retry on failure
+     * @return the payload of the sent message
      */
-    void send(T message, int retries);
+    String send(T message, int retries);
 
 }

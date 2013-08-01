@@ -1,6 +1,7 @@
 package com.dashlabs.hermes;
 
 import com.google.android.gcm.server.Message;
+import com.google.android.gcm.server.Result;
 import com.google.android.gcm.server.Sender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,11 +30,13 @@ public class AndroidTransport implements Transport<Message> {
         return registrationId;
     }
 
-    @Override public void send(Message message, int retries) {
+    @Override public String send(Message message, int retries) {
         try {
-            sender.send(message, registrationId, retries);
+            Result result = sender.send(message, registrationId, retries);
+            return result.toString();
         } catch (IOException ioe) {
             LOG.error("Could not send {}", message.toString(), ioe);
+            return ioe.getMessage();
         }
     }
 }

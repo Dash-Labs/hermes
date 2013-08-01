@@ -22,7 +22,8 @@ public class IOSTransport implements Transport<String> {
         return deviceId;
     }
 
-    @Override public void send(String message, int retries) {
+    @Override public String send(String message, int retries) {
         apnsService.push(deviceId, message);
+        return message;
     }
 }

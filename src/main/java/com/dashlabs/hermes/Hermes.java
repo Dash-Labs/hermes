@@ -46,7 +46,11 @@ public final class Hermes<T> {
 
         protected abstract T getThis();
 
-        public abstract Hermes<H> build();
+        /**
+         * @param retries number of attempts to send on failure
+         * @return the payload of the generate message
+         */
+        public abstract String send(int retries);
 
     }
 
@@ -108,9 +112,10 @@ public final class Hermes<T> {
             return this;
         }
 
-        @Override public Hermes<Message> build() {
-            return new Hermes<Message>(Type.Android, transport, body, data, timeToLiveSeconds, restrictedPackageName, collapseKey, delayWhileIdle,
+        @Override public String send(int retries) {
+            Hermes<Message> hermes = new Hermes<Message>(Type.Android, transport, body, data, timeToLiveSeconds, restrictedPackageName, collapseKey, delayWhileIdle,
                     dryRun, null, null, null, null, null);
+            return hermes.send(retries);
         }
 
         @Override protected AndroidBuilder getThis() {
@@ -177,8 +182,9 @@ public final class Hermes<T> {
             return this;
         }
 
-        @Override public Hermes<String> build() {
-            return new Hermes<String>(Type.iOS, transport, body, data, null, null, null, null, null, sound, badge, actionKey, newsstand, launchImage);
+        @Override public String send(int retries) {
+            Hermes<String> hermes = new Hermes<String>(Type.iOS, transport, body, data, null, null, null, null, null, sound, badge, actionKey, newsstand, launchImage);
+            return hermes.send(retries);
         }
 
         @Override protected iOSBuilder getThis() {
@@ -234,9 +240,9 @@ public final class Hermes<T> {
         this.launchImage = launchImage;
     }
 
-    public void send(int retries) {
+    public String send(int retries) {
         T message = build();
-        transport.send(message, retries);
+        return transport.send(message, retries);
     }
 
     @SuppressWarnings("unchecked")
