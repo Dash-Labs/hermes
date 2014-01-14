@@ -36,11 +36,12 @@ import static com.google.android.gcm.server.Constants.TOKEN_CANONICAL_REG_ID;
 import static com.google.android.gcm.server.Constants.TOKEN_ERROR;
 import static com.google.android.gcm.server.Constants.TOKEN_MESSAGE_ID;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.android.gcm.server.Result.Builder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import org.json.simple.JSONObject;
+import org.json.simple.JSONValue;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -57,10 +58,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Helper class to send messages to the GCM service using an API Key.
  */
+@SuppressWarnings("serial")
 public class Sender {
 
     protected static final String UTF8 = "UTF-8";
@@ -75,11 +79,10 @@ public class Sender {
     protected static final int MAX_BACKOFF_DELAY = 1024000;
 
     protected final Random random = new Random();
-    protected static final Logger logger = LoggerFactory.getLogger(Sender.class);
+    protected static final Logger logger =
+            Logger.getLogger(Sender.class.getName());
 
     private final String key;
-
-    private final ObjectMapper mapper;
 
     /**
      * Default constructor.
@@ -88,26 +91,23 @@ public class Sender {
      */
     public Sender(String key) {
         this.key = nonNull(key);
-        this.mapper = new ObjectMapper();
     }
 
     /**
      * Sends a message to one device, retrying in case of unavailability.
-     *
-     * <p>
+     * <p/>
+     * <p/>
      * <strong>Note: </strong> this method uses exponential back-off to retry in
      * case of service unavailability and hence could block the calling thread
      * for many seconds.
      *
-     * @param message message to be sent, including the device's registration id.
+     * @param message        message to be sent, including the device's registration id.
      * @param registrationId device where the message will be sent.
-     * @param retries number of retries in case of service unavailability errors.
-     *
+     * @param retries        number of retries in case of service unavailability errors.
      * @return result of the request (see its javadoc for more details).
-     *
      * @throws IllegalArgumentException if registrationId is {@literal null}.
-     * @throws InvalidRequestException if GCM didn't returned a 200 or 5xx status.
-     * @throws IOException if message could not be sent.
+     * @throws InvalidRequestException  if GCM didn't returned a 200 or 5xx status.
+     * @throws IOException              if message could not be sent.
      */
     public Result send(Message message, String registrationId, int retries)
             throws IOException {
@@ -117,8 +117,8 @@ public class Sender {
         boolean tryAgain;
         do {
             attempt++;
-            if (logger.isTraceEnabled()) {
-                logger.trace("Attempt #" + attempt + " to send message " +
+            if (logger.isLoggable(Level.FINE)) {
+                logger.fine("Attempt #" + attempt + " to send message " +
                         message + " to regIds " + registrationId);
             }
             result = sendNoRetry(message, registrationId);
@@ -144,8 +144,7 @@ public class Sender {
      *
      * @return result of the post, or {@literal null} if the GCM service was
      *         unavailable or any network exception caused the request to fail.
-     *
-     * @throws InvalidRequestException if GCM didn't returned a 200 or 5xx status.
+     * @throws InvalidRequestException  if GCM didn't returned a 200 or 5xx status.
      * @throws IllegalArgumentException if registrationId is {@literal null}.
      */
     public Result sendNoRetry(Message message, String registrationId)
@@ -175,44 +174,44 @@ public class Sender {
             String key = entry.getKey();
             String value = entry.getValue();
             if (key == null || value == null) {
-                logger.warn("Ignoring payload entry thas has null: {}", entry);
+                logger.warning("Ignoring payload entry thas has null: " + entry);
             } else {
                 key = PARAM_PAYLOAD_PREFIX + key;
                 addParameter(body, key, URLEncoder.encode(value, UTF8));
             }
         }
         String requestBody = body.toString();
-        logger.trace("Request body: {}", requestBody);
+        logger.finest("Request body: " + requestBody);
         HttpURLConnection conn;
         int status;
         try {
             conn = post(GCM_SEND_ENDPOINT, requestBody);
             status = conn.getResponseCode();
         } catch (IOException e) {
-            logger.error("IOException posting to GCM", e);
+            logger.log(Level.FINE, "IOException posting to GCM", e);
             return null;
         }
         if (status / 100 == 5) {
-            logger.trace("GCM service is unavailable (status {})", status);
+            logger.fine("GCM service is unavailable (status " + status + ")");
             return null;
         }
         String responseBody;
         if (status != 200) {
             try {
                 responseBody = getAndClose(conn.getErrorStream());
-                logger.trace("Plain post error response: {}", responseBody);
+                logger.finest("Plain post error response: " + responseBody);
             } catch (IOException e) {
                 // ignore the exception since it will thrown an InvalidRequestException
                 // anyways
                 responseBody = "N/A";
-                logger.info("Exception reading response: ", e);
+                logger.log(Level.FINE, "Exception reading response: ", e);
             }
             throw new InvalidRequestException(status, responseBody);
         } else {
             try {
                 responseBody = getAndClose(conn.getInputStream());
             } catch (IOException e) {
-                logger.warn("Exception reading response: ", e);
+                logger.log(Level.WARNING, "Exception reading response: ", e);
                 // return null so it can retry
                 return null;
             }
@@ -236,12 +235,12 @@ public class Sender {
                 if (token.equals(TOKEN_CANONICAL_REG_ID)) {
                     builder.canonicalRegistrationId(value);
                 } else {
-                    logger.warn("Invalid response from GCM: {}", responseBody);
+                    logger.warning("Invalid response from GCM: " + responseBody);
                 }
             }
             Result result = builder.build();
-            if (logger.isTraceEnabled()) {
-                logger.trace("Message created succesfully ({})", result);
+            if (logger.isLoggable(Level.FINE)) {
+                logger.fine("Message created succesfully (" + result + ")");
             }
             return result;
         } else if (token.equals(TOKEN_ERROR)) {
@@ -253,23 +252,21 @@ public class Sender {
 
     /**
      * Sends a message to many devices, retrying in case of unavailability.
-     *
-     * <p>
+     * <p/>
+     * <p/>
      * <strong>Note: </strong> this method uses exponential back-off to retry in
      * case of service unavailability and hence could block the calling thread
      * for many seconds.
      *
      * @param message message to be sent.
-     * @param regIds registration id of the devices that will receive
-     *        the message.
+     * @param regIds  registration id of the devices that will receive
+     *                the message.
      * @param retries number of retries in case of service unavailability errors.
-     *
      * @return combined result of all requests made.
-     *
      * @throws IllegalArgumentException if registrationIds is {@literal null} or
-     *         empty.
-     * @throws InvalidRequestException if GCM didn't returned a 200 or 503 status.
-     * @throws IOException if message could not be sent.
+     *                                  empty.
+     * @throws InvalidRequestException  if GCM didn't returned a 200 or 503 status.
+     * @throws IOException              if message could not be sent.
      */
     public MulticastResult send(Message message, List<String> regIds, int retries)
             throws IOException {
@@ -285,18 +282,20 @@ public class Sender {
         do {
             multicastResult = null;
             attempt++;
-            if (logger.isTraceEnabled()) {
-                logger.trace("Attempt #{} to send message {} to regIds {}", attempt, message, unsentRegIds);
+            if (logger.isLoggable(Level.FINE)) {
+                logger.fine("Attempt #" + attempt + " to send message " +
+                        message + " to regIds " + unsentRegIds);
             }
             try {
                 multicastResult = sendNoRetry(message, unsentRegIds);
-            } catch(IOException e) {
+            } catch (IOException e) {
                 // no need for WARNING since exception might be already logged
-                logger.info("IOException on attempt {}", attempt, e);
+                logger.log(Level.FINEST, "IOException on attempt " + attempt, e);
             }
             if (multicastResult != null) {
                 long multicastId = multicastResult.getMulticastId();
-                logger.info("multicast_id on attempt # {}: {}", attempt, multicastId);
+                logger.fine("multicast_id on attempt # " + attempt + ": " +
+                        multicastId);
                 multicastIds.add(multicastId);
                 unsentRegIds = updateStatus(unsentRegIds, results, multicastResult);
                 tryAgain = !unsentRegIds.isEmpty() && attempt <= retries;
@@ -317,7 +316,7 @@ public class Sender {
                     + attempt + " attempts");
         }
         // calculate summary
-        int success = 0, failure = 0 , canonicalIds = 0;
+        int success = 0, failure = 0, canonicalIds = 0;
         for (Result result : results.values()) {
             if (result.getMessageId() != null) {
                 success++;
@@ -344,10 +343,9 @@ public class Sender {
      * Updates the status of the messages sent to devices and the list of devices
      * that should be retried.
      *
-     * @param unsentRegIds list of devices that are still pending an update.
-     * @param allResults map of status that will be updated.
+     * @param unsentRegIds    list of devices that are still pending an update.
+     * @param allResults      map of status that will be updated.
      * @param multicastResult result of the last multicast sent.
-     *
      * @return updated version of devices that should be retried.
      */
     private List<String> updateStatus(List<String> unsentRegIds,
@@ -378,11 +376,10 @@ public class Sender {
      *
      * @return multicast results if the message was sent successfully,
      *         {@literal null} if it failed but could be retried.
-     *
      * @throws IllegalArgumentException if registrationIds is {@literal null} or
-     *         empty.
-     * @throws InvalidRequestException if GCM didn't returned a 200 status.
-     * @throws IOException if there was a JSON parsing error
+     *                                  empty.
+     * @throws InvalidRequestException  if GCM didn't returned a 200 status.
+     * @throws IOException              if there was a JSON parsing error
      */
     public MulticastResult sendNoRetry(Message message,
                                        List<String> registrationIds) throws IOException {
@@ -401,40 +398,41 @@ public class Sender {
         if (!payload.isEmpty()) {
             jsonRequest.put(JSON_PAYLOAD, payload);
         }
-        String requestBody = mapper.writeValueAsString(jsonRequest);
-        logger.trace("JSON request: {}", requestBody);
+        String requestBody = JSONValue.toJSONString(jsonRequest);
+        logger.finest("JSON request: " + requestBody);
         HttpURLConnection conn;
         int status;
         try {
             conn = post(GCM_SEND_ENDPOINT, "application/json", requestBody);
             status = conn.getResponseCode();
         } catch (IOException e) {
-            logger.info("IOException posting to GCM", e);
+            logger.log(Level.FINE, "IOException posting to GCM", e);
             return null;
         }
         String responseBody;
         if (status != 200) {
             try {
                 responseBody = getAndClose(conn.getErrorStream());
-                logger.trace("JSON error response: {}", responseBody);
+                logger.finest("JSON error response: " + responseBody);
             } catch (IOException e) {
                 // ignore the exception since it will thrown an InvalidRequestException
                 // anyways
                 responseBody = "N/A";
-                logger.info("Exception reading response: ", e);
+                logger.log(Level.FINE, "Exception reading response: ", e);
             }
             throw new InvalidRequestException(status, responseBody);
         }
         try {
             responseBody = getAndClose(conn.getInputStream());
-        } catch(IOException e) {
-            logger.warn("IOException reading response", e);
+        } catch (IOException e) {
+            logger.log(Level.WARNING, "IOException reading response", e);
             return null;
         }
-        logger.trace("JSON response: {}", responseBody);
-        Map<?, ?> jsonResponse;
+        logger.finest("JSON response: " + responseBody);
+        JSONParser parser = new JSONParser();
+        JSONObject jsonResponse;
         try {
-            jsonResponse = mapper.readValue(responseBody, new TypeReference<Map<?, ?>>() { });
+            jsonResponse = (JSONObject) parser.parse(responseBody);
             int success = getNumber(jsonResponse, JSON_SUCCESS).intValue();
             int failure = getNumber(jsonResponse, JSON_FAILURE).intValue();
             int canonicalIds = getNumber(jsonResponse, JSON_CANONICAL_IDS).intValue();
@@ -460,7 +458,9 @@ public class Sender {
             }
             MulticastResult multicastResult = builder.build();
             return multicastResult;
-        } catch (IOException e) {
+        } catch (ParseException e) {
+            throw newIoException(responseBody, e);
+        } catch (CustomParserException e) {
             throw newIoException(responseBody, e);
         }
     }
@@ -469,7 +469,7 @@ public class Sender {
         // log exception, as IOException constructor that takes a message and cause
         // is only available on Java 6
         String msg = "Error parsing JSON response (" + responseBody + ")";
-        logger.warn(msg, e);
+        logger.log(Level.WARNING, msg, e);
         return new IOException(msg + ":" + e);
     }
 
@@ -479,7 +479,7 @@ public class Sender {
                 closeable.close();
             } catch (IOException e) {
                 // ignore error
-                logger.trace("IOException closing stream", e);
+                logger.log(Level.FINEST, "IOException closing stream", e);
             }
         }
     }
@@ -506,7 +506,6 @@ public class Sender {
         return (Number) value;
     }
 
-    @SuppressWarnings("serial")
     class CustomParserException extends RuntimeException {
         CustomParserException(String message) {
             super(message);
@@ -533,17 +532,15 @@ public class Sender {
 
     /**
      * Makes an HTTP POST request to a given endpoint.
-     *
-     * <p>
+     * <p/>
+     * <p/>
      * <strong>Note: </strong> the returned connected should not be disconnected,
      * otherwise it would kill persistent connections made using Keep-Alive.
      *
-     * @param url endpoint to post the request.
+     * @param url         endpoint to post the request.
      * @param contentType type of request.
-     * @param body body of the request.
-     *
+     * @param body        body of the request.
      * @return the underlying connection.
-     *
      * @throws IOException propagated from underlying methods.
      */
     protected HttpURLConnection post(String url, String contentType, String body)
@@ -552,10 +549,10 @@ public class Sender {
             throw new IllegalArgumentException("arguments cannot be null");
         }
         if (!url.startsWith("https://")) {
-            logger.warn("URL does not use https: {}", url);
+            logger.warning("URL does not use https: " + url);
         }
-        logger.info("Sending POST to {}", url);
-        logger.trace("POST body: {}", body);
+        logger.fine("Sending POST to " + url);
+        logger.finest("POST body: " + body);
         byte[] bytes = body.getBytes();
         HttpURLConnection conn = getConnection(url);
         conn.setDoOutput(true);
@@ -586,7 +583,7 @@ public class Sender {
     /**
      * Creates a {@link StringBuilder} to be used as the body of an HTTP POST.
      *
-     * @param name initial parameter for the POST.
+     * @param name  initial parameter for the POST.
      * @param value initial value for that parameter.
      * @return StringBuilder to be used an HTTP POST body.
      */
@@ -597,8 +594,8 @@ public class Sender {
     /**
      * Adds a new parameter to the HTTP POST body.
      *
-     * @param body HTTP POST body.
-     * @param name parameter's name.
+     * @param body  HTTP POST body.
+     * @param name  parameter's name.
      * @param value parameter's value.
      */
     protected static void addParameter(StringBuilder body, String name,
@@ -617,9 +614,9 @@ public class Sender {
 
     /**
      * Convenience method to convert an InputStream to a String.
-     * <p>
+     * <p/>
      * If the stream ends in a newline character, it will be stripped.
-     * <p>
+     * <p/>
      * If the stream is {@literal null}, returns an empty string.
      */
     protected static String getString(InputStream stream) throws IOException {
