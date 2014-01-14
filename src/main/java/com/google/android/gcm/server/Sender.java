@@ -156,7 +156,7 @@ public class Sender {
         }
         Boolean dryRun = message.isDryRun();
         if (dryRun != null) {
-            addParameter(body, PARAM_DRY_RUN, dryRun ? "1" : "0");
+            addParameter(body, PARAM_DRY_RUN, dryRun ? "true" : "false"); // see https://code.google.com/p/gcm/issues/detail?id=21
         }
         String collapseKey = message.getCollapseKey();
         if (collapseKey != null) {
