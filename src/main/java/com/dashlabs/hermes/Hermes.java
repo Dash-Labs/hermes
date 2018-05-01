@@ -1,6 +1,9 @@
 package com.dashlabs.hermes;
 
+import com.dashlabs.hermes.firebase.MessageWrapper;
 import com.google.android.gcm.server.Message;
+import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.notnoop.apns.APNS;
 import com.notnoop.apns.PayloadBuilder;
 
@@ -250,6 +253,8 @@ public final class Hermes<T> {
         switch (type) {
             case Android:
                 return (T) buildAndroid();
+            case AndroidFirebase:
+                return (T) buildAndroidFirebase();
             case iOS:
                 return (T) buildIOS();
             default:
@@ -278,6 +283,24 @@ public final class Hermes<T> {
             builder.addData(key, value);
         }
         return builder.build();
+    }
+
+    private MessageWrapper buildAndroidFirebase() {
+        com.google.firebase.messaging.Message.Builder builder = com.google.firebase.messaging.Message.builder();
+        AndroidConfig.Builder androidConfig = AndroidConfig.builder();
+        if (timeToLiveSeconds != null) {
+            androidConfig.setTtl(timeToLiveSeconds.longValue());
+        }
+        androidConfig.setRestrictedPackageName(restrictedPackageName);
+        androidConfig.setCollapseKey(collapseKey);
+        if (body != null) {
+            builder.putData("body", body);
+        }
+        for (String key : data.keySet()) {
+            String value = data.get(key);
+            builder.putData(key, value);
+        }
+        return new MessageWrapper(builder, (dryRun != null ? dryRun : false));
     }
 
     private String buildIOS() {
