@@ -27,6 +27,10 @@ public final class Hermes<T> {
         return new AndroidBuilder(transport);
     }
 
+    public static AndroidFirebaseBuilder androidFirebase(Transport<MessageWrapper> transport) {
+        return new AndroidFirebaseBuilder(transport);
+    }
+
     private static abstract class Builder<T extends Builder<T, H>, H> {
 
         protected final Map<String, String> data;
@@ -122,6 +126,66 @@ public final class Hermes<T> {
         }
 
         @Override protected AndroidBuilder getThis() {
+            return this;
+        }
+
+    }
+
+    public static final class AndroidFirebaseBuilder extends Builder<AndroidFirebaseBuilder, MessageWrapper> {
+
+        private final Transport<MessageWrapper> transport;
+
+        /**
+         * @see {@literal https://developer.android.com/google/gcm/gcm.html}
+         */
+        private Integer timeToLiveSeconds;
+
+        /**
+         * @see {@literal https://developer.android.com/google/gcm/gcm.html}
+         */
+        private String restrictedPackageName;
+
+        /**
+         * @see {@literal https://developer.android.com/google/gcm/gcm.html}
+         */
+        private String collapseKey;
+
+        /**
+         * @see {@literal https://developer.android.com/google/gcm/gcm.html}
+         */
+        private Boolean dryRun;
+
+        private AndroidFirebaseBuilder(Transport<MessageWrapper> transport) {
+            this.transport = transport;
+        }
+
+        public AndroidFirebaseBuilder timeToLiveSeconds(int timeToLiveSeconds) {
+            this.timeToLiveSeconds = timeToLiveSeconds;
+            return this;
+        }
+
+        public AndroidFirebaseBuilder restrictedPackageName(String restrictedPackageName) {
+            this.restrictedPackageName = restrictedPackageName;
+            return this;
+        }
+
+        public AndroidFirebaseBuilder collapseKey(String collapseKey) {
+            this.collapseKey = collapseKey;
+            return this;
+        }
+
+        public AndroidFirebaseBuilder forDryRun() {
+            this.dryRun = true;
+            return this;
+        }
+
+        @Override public String send(int retries) {
+            Hermes<MessageWrapper> hermes = new Hermes<MessageWrapper>(Type.AndroidFirebase, transport, body, data, timeToLiveSeconds, restrictedPackageName, collapseKey, null,
+                    dryRun, null, null, null, null, null);
+            return hermes.send(retries);
+        }
+
+        @Override protected AndroidFirebaseBuilder getThis() {
             return this;
         }
 
