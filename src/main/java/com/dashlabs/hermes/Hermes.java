@@ -353,10 +353,12 @@ public final class Hermes<T> {
         com.google.firebase.messaging.Message.Builder builder = com.google.firebase.messaging.Message.builder();
         AndroidConfig.Builder androidConfig = AndroidConfig.builder();
         if (timeToLiveSeconds != null) {
-            androidConfig.setTtl(timeToLiveSeconds.longValue());
+            // firebase uses milliseconds
+            androidConfig.setTtl(timeToLiveSeconds.longValue() * 1000L);
         }
         androidConfig.setRestrictedPackageName(restrictedPackageName);
         androidConfig.setCollapseKey(collapseKey);
+        builder.setAndroidConfig(androidConfig.build());
         if (body != null) {
             builder.putData("body", body);
         }
