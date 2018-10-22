@@ -1,11 +1,7 @@
 package com.dashlabs.hermes;
 
 import com.dashlabs.hermes.firebase.MessageWrapper;
-import com.google.android.gcm.server.Message;
-import com.google.firebase.messaging.AndroidConfig;
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.notnoop.apns.APNS;
-import com.notnoop.apns.PayloadBuilder;
+import com.google.firebase.messaging.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,20 +11,18 @@ import java.util.Map;
  * Date: 8/1/13
  * Time: 9:31 AM
  *
- * Abstracted interface for APNS and GCM.  To start use the appropriate builder method {@link #iOS(Transport)} or {@link #android(Transport)}
+ * Abstracted interface for APNS and GCM.
  */
 public final class Hermes<T> {
 
-    public static iOSBuilder iOS(Transport<String> transport) {
-        return new iOSBuilder(transport);
+    public static FirebaseBuilder androidFirebase(Transport<MessageWrapper> transport) {
+        return new FirebaseBuilder(Type.AndroidFirebase, transport);
     }
 
-    public static AndroidBuilder android(Transport<Message> transport) {
-        return new AndroidBuilder(transport);
-    }
-
-    public static AndroidFirebaseBuilder androidFirebase(Transport<MessageWrapper> transport) {
-        return new AndroidFirebaseBuilder(transport);
+    public static FirebaseBuilder iOSFirebase(Transport<MessageWrapper> transport, String title) {
+        FirebaseBuilder firebaseBuilder = new FirebaseBuilder(Type.iOSFirebase, transport);
+        firebaseBuilder.title(title);
+        return firebaseBuilder;
     }
 
     private static abstract class Builder<T extends Builder<T, H>, H> {
@@ -61,77 +55,9 @@ public final class Hermes<T> {
 
     }
 
-    public static final class AndroidBuilder extends Builder<AndroidBuilder, Message> {
+    public static final class FirebaseBuilder extends Builder<FirebaseBuilder, MessageWrapper> {
 
-        private final Transport<Message> transport;
-
-        /**
-         * @see {@literal https://developer.android.com/google/gcm/gcm.html}
-         */
-        private Integer timeToLiveSeconds;
-
-        /**
-         * @see {@literal https://developer.android.com/google/gcm/gcm.html}
-         */
-        private String restrictedPackageName;
-
-        /**
-         * @see {@literal https://developer.android.com/google/gcm/gcm.html}
-         */
-        private String collapseKey;
-
-        /**
-         * @see {@literal https://developer.android.com/google/gcm/gcm.html}
-         */
-        private Boolean delayWhileIdle;
-
-        /**
-         * @see {@literal https://developer.android.com/google/gcm/gcm.html}
-         */
-        private Boolean dryRun;
-
-        private AndroidBuilder(Transport<Message> transport) {
-            this.transport = transport;
-        }
-
-        public AndroidBuilder timeToLiveSeconds(int timeToLiveSeconds) {
-            this.timeToLiveSeconds = timeToLiveSeconds;
-            return this;
-        }
-
-        public AndroidBuilder restrictedPackageName(String restrictedPackageName) {
-            this.restrictedPackageName = restrictedPackageName;
-            return this;
-        }
-
-        public AndroidBuilder collapseKey(String collapseKey) {
-            this.collapseKey = collapseKey;
-            return this;
-        }
-
-        public AndroidBuilder delayWhileIdle(boolean delayWhileIdle) {
-            this.delayWhileIdle = delayWhileIdle;
-            return this;
-        }
-
-        public AndroidBuilder forDryRun() {
-            this.dryRun = true;
-            return this;
-        }
-
-        @Override public String send(int retries) {
-            Hermes<Message> hermes = new Hermes<Message>(Type.Android, transport, body, data, timeToLiveSeconds, restrictedPackageName, collapseKey, delayWhileIdle,
-                    dryRun, null, null, null, null, null);
-            return hermes.send(retries);
-        }
-
-        @Override protected AndroidBuilder getThis() {
-            return this;
-        }
-
-    }
-
-    public static final class AndroidFirebaseBuilder extends Builder<AndroidFirebaseBuilder, MessageWrapper> {
+        private final Type type;
 
         private final Transport<MessageWrapper> transport;
 
@@ -155,106 +81,45 @@ public final class Hermes<T> {
          */
         private Boolean dryRun;
 
-        private AndroidFirebaseBuilder(Transport<MessageWrapper> transport) {
+        private String title;
+
+        private FirebaseBuilder(Type type, Transport<MessageWrapper> transport) {
+            this.type = type;
             this.transport = transport;
         }
 
-        public AndroidFirebaseBuilder timeToLiveSeconds(int timeToLiveSeconds) {
+        public FirebaseBuilder title(String title) {
+            this.title = title;
+            return this;
+        }
+
+        public FirebaseBuilder timeToLiveSeconds(int timeToLiveSeconds) {
             this.timeToLiveSeconds = timeToLiveSeconds;
             return this;
         }
 
-        public AndroidFirebaseBuilder restrictedPackageName(String restrictedPackageName) {
+        public FirebaseBuilder restrictedPackageName(String restrictedPackageName) {
             this.restrictedPackageName = restrictedPackageName;
             return this;
         }
 
-        public AndroidFirebaseBuilder collapseKey(String collapseKey) {
+        public FirebaseBuilder collapseKey(String collapseKey) {
             this.collapseKey = collapseKey;
             return this;
         }
 
-        public AndroidFirebaseBuilder forDryRun() {
+        public FirebaseBuilder forDryRun() {
             this.dryRun = true;
             return this;
         }
 
         @Override public String send(int retries) {
-            Hermes<MessageWrapper> hermes = new Hermes<MessageWrapper>(Type.AndroidFirebase, transport, body, data, timeToLiveSeconds, restrictedPackageName, collapseKey, null,
-                    dryRun, null, null, null, null, null);
+            Hermes<MessageWrapper> hermes = new Hermes<MessageWrapper>(type, transport, body, data, timeToLiveSeconds, restrictedPackageName, collapseKey,
+                    dryRun, title);
             return hermes.send(retries);
         }
 
-        @Override protected AndroidFirebaseBuilder getThis() {
-            return this;
-        }
-
-    }
-
-    public static final class iOSBuilder extends Builder<iOSBuilder, String> {
-
-        private final Transport<String> transport;
-
-        /**
-         * @see com.notnoop.apns.PayloadBuilder#sound(String)
-         */
-        private String sound;
-
-        /**
-         * @see com.notnoop.apns.PayloadBuilder#badge(int)
-         */
-        private Integer badge;
-
-        /**
-         * @see com.notnoop.apns.PayloadBuilder#actionKey(String)
-         */
-        private String actionKey;
-
-        /**
-         * @see com.notnoop.apns.PayloadBuilder#forNewsstand()
-         */
-        private Boolean newsstand;
-
-        /**
-         * @see com.notnoop.apns.PayloadBuilder#launchImage(String)
-         */
-        private String launchImage;
-
-        private iOSBuilder(Transport<String> transport) {
-            this.transport = transport;
-        }
-
-        public iOSBuilder sound(String sound) {
-            this.sound = sound;
-            return this;
-        }
-
-        public iOSBuilder badge(int badge) {
-            this.badge = badge;
-            return this;
-        }
-
-        public iOSBuilder actionKey(String actionKey) {
-            this.actionKey = actionKey;
-            return this;
-        }
-
-        public iOSBuilder forNewsstand() {
-            this.newsstand = true;
-            return this;
-        }
-
-        public iOSBuilder launchImage(String launchImage) {
-            this.launchImage = launchImage;
-            return this;
-        }
-
-        @Override public String send(int retries) {
-            Hermes<String> hermes = new Hermes<String>(Type.iOS, transport, body, data, null, null, null, null, null, sound, badge, actionKey, newsstand, launchImage);
-            return hermes.send(retries);
-        }
-
-        @Override protected iOSBuilder getThis() {
+        @Override protected FirebaseBuilder getThis() {
             return this;
         }
 
@@ -274,23 +139,12 @@ public final class Hermes<T> {
 
     private final String collapseKey;
 
-    private final Boolean delayWhileIdle;
-
     private final Boolean dryRun;
 
-    private final String sound;
-
-    private final Integer badge;
-
-    private final String actionKey;
-
-    private final Boolean newsstand;
-
-    private final String launchImage;
+    private final String title;
 
     private Hermes(Type type, Transport<T> transport, String body, Map<String, String> data, Integer timeToLiveSeconds,
-                   String restrictedPackageName, String collapseKey, Boolean delayWhileIdle, Boolean dryRun,
-                   String sound, Integer badge, String actionKey, Boolean newsstand, String launchImage) {
+                   String restrictedPackageName, String collapseKey, Boolean dryRun, String title) {
         this.type = type;
         this.transport = transport;
         this.body = body;
@@ -298,13 +152,8 @@ public final class Hermes<T> {
         this.timeToLiveSeconds = timeToLiveSeconds;
         this.restrictedPackageName = restrictedPackageName;
         this.collapseKey = collapseKey;
-        this.delayWhileIdle = delayWhileIdle;
         this.dryRun = dryRun;
-        this.sound = sound;
-        this.badge = badge;
-        this.actionKey = actionKey;
-        this.newsstand = newsstand;
-        this.launchImage = launchImage;
+        this.title = title;
     }
 
     public String send(int retries) {
@@ -315,38 +164,13 @@ public final class Hermes<T> {
     @SuppressWarnings("unchecked")
     private T build() {
         switch (type) {
-            case Android:
-                return (T) buildAndroid();
             case AndroidFirebase:
                 return (T) buildAndroidFirebase();
-            case iOS:
-                return (T) buildIOS();
+            case iOSFirebase:
+                return (T) buildIOSFirebase(title);
             default:
                 throw new AssertionError(String.format("Unknown type %s", (type == null ? "<null>" : type.name())));
         }
-    }
-
-    private Message buildAndroid() {
-        Message.Builder builder = new Message.Builder();
-        if (timeToLiveSeconds != null) {
-            builder.timeToLive(timeToLiveSeconds);
-        }
-        builder.restrictedPackageName(restrictedPackageName);
-        builder.collapseKey(collapseKey);
-        if (delayWhileIdle != null) {
-            builder.delayWhileIdle(delayWhileIdle);
-        }
-        if (dryRun != null) {
-            builder.dryRun(dryRun);
-        }
-        if (body != null) {
-            builder.addData("body", body);
-        }
-        for (String key : data.keySet()) {
-            String value = data.get(key);
-            builder.addData(key, value);
-        }
-        return builder.build();
     }
 
     private MessageWrapper buildAndroidFirebase() {
@@ -369,22 +193,22 @@ public final class Hermes<T> {
         return new MessageWrapper(builder, (dryRun != null ? dryRun : false));
     }
 
-    private String buildIOS() {
-        PayloadBuilder builder = APNS.newPayload();
-        builder.sound(sound);
-        if (badge != null) {
-            builder.badge(badge);
+    private MessageWrapper buildIOSFirebase(String title) {
+        com.google.firebase.messaging.Message.Builder builder = com.google.firebase.messaging.Message.builder();
+        ApnsConfig.Builder apnsConfig = ApnsConfig.builder();
+        apnsConfig.putHeader("apns-priority", "10");
+        apnsConfig.setAps(Aps.builder()
+                .setAlert(ApsAlert.builder()
+                        .setTitle(title)
+                        .setBody(body)
+                        .build())
+                .build());
+        builder.setApnsConfig(apnsConfig.build());
+        for (String key : data.keySet()) {
+            String value = data.get(key);
+            builder.putData(key, value);
         }
-        builder.actionKey(actionKey);
-        if ((newsstand != null) && newsstand) {
-            builder.forNewsstand();
-        }
-        builder.launchImage(launchImage);
-        if (body != null) {
-            builder.alertBody(body);
-        }
-        builder.customFields(data);
-        return builder.build();
+        return new MessageWrapper(builder, (dryRun != null ? dryRun : false));
     }
 
 }

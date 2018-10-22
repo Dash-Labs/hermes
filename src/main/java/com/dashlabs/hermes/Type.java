@@ -7,6 +7,6 @@ package com.dashlabs.hermes;
  */
 enum Type {
 
-    Android, AndroidFirebase, iOS
+    AndroidFirebase, iOSFirebase
 
 }

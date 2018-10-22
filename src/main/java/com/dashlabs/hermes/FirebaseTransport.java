@@ -11,13 +11,13 @@ import java.util.concurrent.ExecutionException;
  * Date: 5/1/18
  * Time: 9:47 AM
  */
-public class AndroidFirebaseTransport implements Transport<MessageWrapper> {
+public class FirebaseTransport implements Transport<MessageWrapper> {
 
     private final String registrationId;
 
     private final FirebaseMessaging messaging;
 
-    public AndroidFirebaseTransport(String registrationId, FirebaseMessaging messaging) {
+    public FirebaseTransport(String registrationId, FirebaseMessaging messaging) {
         this.registrationId = registrationId;
         this.messaging = messaging;
     }
